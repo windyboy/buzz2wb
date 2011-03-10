@@ -1,36 +1,30 @@
 <html>
- <head>
-  <title> Buzz Public Feed to Sina Weibo </title>
-  <meta name="Author" content="windyboy@gmail.com">
-  <meta name="Keywords" content="buzz,sina,weibo">
-  <meta name="Description" content="">
-  <link type="text/css" rel="stylesheet" href="/stylesheets/style.css" />
- </head>
-
- <body>
+	<head>
+		<title>Buzz Public Feed to Sina Weibo</title>
+		<meta name="Author" content="windyboy@gmail.com">
+		<meta name="Keywords" content="buzz,sina,weibo">
+		<meta name="Description" content="">
+		<link type="text/css" rel="stylesheet" href="/stylesheets/style.css" />
+	</head>
+	<body>
 	<h2>Buzz for Weibo</h2>
-	{% if user %}
-	如果 {{user}} 不是您，请<a href="{{logout_url}}">登出</a> <br/>
-	{%for feed in feeds%}
-	{{feed.topic}} :: {{feed.date}}
-	{%endfor%}
-	<form action="{{action}}" method="post">
-		<input type="text" name="hub.topic" value="{{hub_topic}}" size="60" readonly><br/>
-		<select name="hub.mode">
-			{%if feed_count %}
-			<option value="unsubscribe" selected>取消订阅</option>			
-			{%else%}
-			<option value="subscribe" selected>订阅</option>
-			{%endif%}
-		</select>
-		<input type="hidden" name="hub.verify" value="{{hub_verify}}">
-		<input type="hidden" name="hub.callback" value="{{hub_callback}}">
-		<input type="submit" value="提交">
-	</form>
-	<a href='/sub'>sub</a>
-	<a href='/auth'>登录新浪微博</a>
-	{% else %}
-	请首先使用谷歌帐户<a href="{{login_url}}">登入<a>
-	{% endif %}
- </body>
+	{% if user %} 如果 {{user}} 不是您，请<a href="{{logout_url}}">登出</a> <br />
+		<div id="feeds">
+			{%for f in feeds%}
+			<div id="feed_item">
+				<div id="feed_topic">{{f.topic}}</div>
+				<div id="feed_action">
+				{% if f.topic_verified %}
+				 <a href="/unsub">取消订阅</a>
+				{% else %} 
+				<a href="/sub">订阅</a> {% endif %}
+				</div>
+			</div>
+			{%endfor%}
+		</div>	
+		<a href='/auth'>登录新浪微博</a>
+	{% else %} 请首先使用谷歌帐户
+		<a href="{{login_url}}">登入<a> 
+	{% endif %} 
+	</body>
 </html>

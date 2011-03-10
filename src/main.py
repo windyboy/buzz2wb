@@ -17,33 +17,33 @@ from google.appengine.dist import use_library
 use_library('django', '0.96')
 
 
+HUB_SUB_URL = 'http://pubsubhubbub.appspot.com/subscribe'
+HUB_CALLBACK_URL = 'http://buzz2wb.appspot.com/callback'
+SUBSCRIBE_ACTION = "subscribe"
+UNSUBSCRIBE_ACTION = "unsubscribe"
     
 class MainPage(webapp.RequestHandler):
     def get(self):
+        ''' display home page'''
         current_user = users.get_current_user()
-        name = ''
-        #sub_url = 'http://localhost:8080/subscribe'
-        sub_url = 'http://pubsubhubbub.appspot.com/subscribe'
-        hub_verify = 'sync'
-        #hub_callback = 'http://localhost:9999/callback'
-        hub_callback = 'http://buzz2wb.appspot.com/callback'
-        hub_topic = ''
-        feeds = None
-        feed_count = None
-        
+        name = ''        
         if current_user:
             name = current_user.nickname()            
             hub_topic = 'https://www.googleapis.com/buzz/v1/activities/%s/@public' % name
             feeds = Feed.gql('WHERE g_user = :1', current_user)
             feed_count = feeds.count()
             logging.debug('feeds: %s' % feed_count)
-
+            if feed_count < 1:
+                ''' add a new feed record '''
+                feed = Feed()
+                feed.g_user = current_user
+                feed.topic = hub_topic
+                feed.topic_verified = False
+                feed.put()
+                logging.info("add new feed record for user {%s}" % current_user)
+                
         template_values = {
                            'user': name,
-                           'hub_topic': hub_topic,
-                           'hub_verify': hub_verify,
-                           'hub_callback': hub_callback,
-                           'action': sub_url,
                            'feeds': feeds,
                            'feed_count': feed_count,
                            'login_url': users.create_login_url(self.request.uri),
@@ -64,54 +64,68 @@ class BuzzHandler(webapp.RequestHandler):
         logging.info('challenge: %s' % challenge)
         logging.info('mode: %s' % mode)
         logging.info('topic: %s' % topic)
-        logging.info('current user: %s '% users.get_current_user())
+#        logging.info('current user: %s '% users.get_current_user())
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.out.write(challenge)
         if mode == 'subscribe':
-            feed = Feed()
-            feed.topic = topic
-            feed.put()
-            logging.info('save feed')
+            feed = Feed.gql('WHERE topic = :1', topic)
+            if feed.count()>0:
+                r = feed.get()
+                r.topic_verified = True
+                db.put(r)
+                logging.info('topic {%s} is verified'% r.topic)
+            else:
+                logging.error('can not find the topic {%s}'% topic)
         elif mode == 'unsubscribe':
             feeds = Feed.gql('WHERE topic = :1', topic)
             logging.debug('%s feeds to delete' % feeds.count())
             for feed in feeds:
+                logging.info('deleting {%s}'%feed.topic)
                 db.delete(feed)
             logging.debug('delete feed')
             
-
-class SubscribeHandler(webapp.RequestHandler):
-#    sub_url = "http://localhost:9090/subscribe"
-    sub_url = 'http://pubsubhubbub.appspot.com/subscribe'
-#    hub_callback = 'http://localhost:9999/callback'
-    hub_callback = 'http://buzz2wb.appspot.com/callback'
-    def get(self):
-        ''' subscribe the public feed'''
-#        sub_url = ''
+class HubHandler(webapp.RequestHandler):
+    def process(self, hub_mode, hub_verify = 'sync'):
+        ''' subscribe or unsubscribe the topic'''
         hub_topic = 'https://www.googleapis.com/buzz/v1/activities/%s/@public' % users.get_current_user().nickname()
-        hub_mode = 'subscribe'
-        hub_verify = 'sync'
-        
         values = {
                   'hub.topic': hub_topic,
                   'hub.mode': hub_mode,
                   'hub.verify': hub_verify,
-                  'hub.callback': self.hub_callback,
+                  'hub.callback': HUB_CALLBACK_URL,
                   }
-        logging.info('post sub to: %s' % self.sub_url)
-        logging.info('callback url: %s' % self.hub_callback)
+        logging.info('post sub to: %s' % HUB_SUB_URL)
+        logging.info('callback url: %s' % HUB_CALLBACK_URL)
+        
         postdata = urllib.urlencode(values)
         logging.info('data: %s' % values)
         try:
             result = urlfetch.fetch(
-                        url=self.sub_url,
+                        url=HUB_SUB_URL,
                         payload=postdata,
                         method=urlfetch.POST,
                         follow_redirects = False, 
                         headers={'Content-Type': 'application/x-www-form-urlencoded'})
-            logging.info(result.status_code)
+#            logging.info(result.status_code)
+            if result.status_code != 204:
+                logging.error('error in %s ')
+            else:
+                logging.info('success')
+            
         except urlfetch.DownloadError, err :
             logging.error('error : %s '% err)
+            
+            
+class SubscribeHandler(HubHandler):
+    def get(self):
+        ''' subscribe the public feed'''
+        self.process(SUBSCRIBE_ACTION)
+        self.redirect('/')
+        
+class UnSubscribeHandler(HubHandler):
+    def get(self):
+        ''' unsubscribe the public feed'''
+        self.process(UNSUBSCRIBE_ACTION)
         self.redirect('/')
 
 
@@ -125,6 +139,7 @@ application = webapp.WSGIApplication(
                                      [('/', MainPage),
                                       ('/callback', BuzzHandler),
                                       ('/sub', SubscribeHandler),
+                                      ('/unsub', UnSubscribeHandler),
                                       ('/auth', sinaauth.AuthHandler),
                                       ('/request_token_ready', AuthCallbackHandler)],
                                      debug=True)

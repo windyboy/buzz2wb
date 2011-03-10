@@ -7,6 +7,7 @@ from google.appengine.ext import db
 
 class Feed(db.Model):
     topic = db.StringProperty()
+    topic_verified = db.BooleanProperty()
     hub_token = db.StringProperty()
     date = db.DateTimeProperty(auto_now_add=True)
     token_key = db.StringProperty()
