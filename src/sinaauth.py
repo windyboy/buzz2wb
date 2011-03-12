@@ -26,7 +26,7 @@ class AuthHandler(webapp.RequestHandler):
         logging.info('begin to auth')
         consumer = oauth.Consumer(CONSUMER_KEY, CONSUMER_SECRET)
         signature_method_hmac_sha1 = oauth.SignatureMethod_HMAC_SHA1()
-        oauth_token_request = oauth.Request.from_consumer_and_token(consumer,http_url=REQUEST_TOKEN_URL)
+        oauth_token_request = oauth.Request.from_consumer_and_token(consumer, http_url=REQUEST_TOKEN_URL)
         oauth_token_request.sign_request(signature_method_hmac_sha1, consumer, None)
 #        response = urllib2.urlopen(oauth_token_request.to_url()).read()
         logging.info('request token url: %s ' % oauth_token_request.to_url())
@@ -38,7 +38,7 @@ class AuthHandler(webapp.RequestHandler):
             token = oauth.Token.from_string(response.content)
             logging.info( 'key: %s' % str(token.key))
             logging.info( 'secret: %s' % str(token.secret))
-            oauth_request = oauth.Request.from_token_and_callback(token=token, http_url=AUTHORIZATION_URL)
+            oauth_request = oauth.Request.from_token_and_callback(token=token, callback=CALLBACK_URL, http_url=AUTHORIZATION_URL)
             oauth_request.sign_request(signature_method_hmac_sha1, consumer, token)
             # Redirect user to get authentication token.
             logging.info('redirect to: %s'%oauth_request.to_url())

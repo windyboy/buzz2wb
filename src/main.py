@@ -21,14 +21,17 @@ HUB_SUB_URL = 'http://pubsubhubbub.appspot.com/subscribe'
 HUB_CALLBACK_URL = 'http://buzz2wb.appspot.com/callback'
 SUBSCRIBE_ACTION = "subscribe"
 UNSUBSCRIBE_ACTION = "unsubscribe"
+COOKIE_USER = 'b2w_g_user'
     
 class MainPage(webapp.RequestHandler):
     def get(self):
         ''' display home page'''
         current_user = users.get_current_user()
-        name = ''        
+        name = ''
+        feeds = None        
         if current_user:
-            name = current_user.nickname()            
+            name = current_user.nickname()
+#            self.response.headers.add_header('Set-Cookie','%s=%s' % (COOKIE_USER, name))            
             hub_topic = 'https://www.googleapis.com/buzz/v1/activities/%s/@public' % name
             feeds = Feed.gql('WHERE g_user = :1', current_user)
             feed_count = feeds.count()
@@ -45,7 +48,6 @@ class MainPage(webapp.RequestHandler):
         template_values = {
                            'user': name,
                            'feeds': feeds,
-                           'feed_count': feed_count,
                            'login_url': users.create_login_url(self.request.uri),
                            'logout_url': users.create_logout_url(self.request.uri),
                            }
@@ -133,7 +135,12 @@ class UnSubscribeHandler(HubHandler):
 class AuthCallbackHandler(webapp.RequestHandler):
     def get(self):
         logging.info('oauth callback')
-        
+        oauth_token = self.request.get('oauth_token')
+        logging.info('oauth_token: %s'% oauth_token)
+        oauth_token_secret = self.request.get('oauth_token_secret')
+        logging.info('oauth_token_secret: %s'%oauth_token_secret)
+        oauth_callback_confirmed = self.request.get('oauth_callback_confirmed')
+        logging.info('oauth_callback_confirmed: %s'%oauth_callback_confirmed)
         
 application = webapp.WSGIApplication(
                                      [('/', MainPage),
